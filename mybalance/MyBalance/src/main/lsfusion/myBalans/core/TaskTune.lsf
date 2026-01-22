@@ -1,0 +1,83 @@
+MODULE TaskTune;
+
+REQUIRE Task, TaskPermission;
+
+NAMESPACE Budget;
+
+
+FORM taskTune 'Настройка задач расчета'
+OBJECTS cv = CalcVariant  PANEL
+TREE taskTree f = Task PARENT parent(f) 
+PROPERTIES nameCalcVariant(cv) READONLY PANEL  
+PROPERTIES  ON CHANGE {SHOW taskListCard;} 
+            pos(f),
+            nameTaskTab(f)  
+                FOREGROUND  IF isGroup(f) THEN groupFontColor(), 
+                
+                
+            nameCol 'тип' = nameCalcBook(type(f))  ,
+            parentCol 'в группе' = nameTask(parent(f))  ,
+            isGroup(f)
+
+PROPERTIES  stButN 'Новый элемент' = NEW(f), stButD 'Удалить' = DELETE(f)
+
+EVENTS ON INIT {EXPAND ALL TOP taskTune.f;}
+// EVENTS ON CHANGE f {EXPAND ALL calcCompositionTune.f;}
+FILTERS cv = calcVariant(f)
+
+OBJECTS ur = UserRole
+PROPERTIES taskPermission(f , ur)
+PROPERTIES(ur) READONLY sid,name
+;
+
+
+//
+newGroupTask(CalcVariant cv) {
+  NEW new = Task {
+        isGroup(new) <-TRUE;
+        nameTask(new) <- 'Новая группа';
+        calcVariant(new) <- cv;
+        SEEK taskTune.f = new;
+    }
+}
+EXTEND FORM taskTune 
+PROPERTIES newGroup '+ Новая группа' = newGroupTask(cv);
+
+// открытие формы настроек сделаем из списка расчетов
+openTaskList(CalcVariant calcV) + {
+    SHOW taskTune OBJECTS  cv = calcV DOCKED NOWAIT MANAGESESSION 
+    ;
+}
+
+
+DESIGN  taskTune {
+    PROPERTY (isGroup(f)){ hide = TRUE; }
+    PROPERTY (nameTaskTab(f)) { charWidth =20; } 
+    PROPERTY (parentCol) {charWidth = 20;} 
+    PROPERTY (nameCalcVariant(cv) ) { fontStyle = 'bold'; } 
+     
+   TOOLBAR ( TREE taskTree) {
+        MOVE PROPERTY (newGroup)  BEFORE PROPERTY (stButN);
+   }
+   OBJECTS {
+    NEW mainPanel{
+        fill = 1;
+        
+        MOVE  BOX(TREE taskTree) {fill = 2;};
+        NEW panelBt{
+            fill = 1;
+            horizontal = TRUE;
+            MOVE BOX (ur) {fill =1;}
+            NEW details  { // создаем новый контейнер в стандартный контейнер сразу после i.box
+        // этот контейнер будет панелью закладок, в который можно будет добавлять закладки со свойствами товара
+            tabbed = TRUE; 
+            fill = 3;  
+            }
+      }
+    }
+  }     
+};
+
+
+
+

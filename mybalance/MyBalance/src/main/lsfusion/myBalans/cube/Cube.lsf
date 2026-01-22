@@ -1,0 +1,5 @@
+// убрал - упростил генерацию
+MODULE Cube;
+
+NAMESPACE Cube;
+ 

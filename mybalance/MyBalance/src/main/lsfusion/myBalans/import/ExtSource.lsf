@@ -1,0 +1,60 @@
+MODULE ExtSource;
+
+REQUIRE Utils,DimensFirm;
+
+NAMESPACE   ExtSystem; 
+
+CLASS ExtSource 'Внешние источники';
+TABLE extSource(ExtSource);
+
+codeSource = DATA STRING[10] (ExtSource);
+defaultSource 'Основной источник справочников' = DATA BOOLEAN (ExtSource);
+name 'Имя источника' = DATA STRING[100] (ExtSource) IN id;
+conectString 'Строка подключения' = DATA STRING[1000] (ExtSource) CHARWIDTH 15;
+user 'User' = DATA STRING[25] (ExtSource);
+password 'Password' =  DATA STRING[250] (ExtSource) ECHO;
+passwordBasicAuth   =  DATA STRING[200] (ExtSource);
+//dimFirm 'Организация' = DATA DimFirm(ExtSource);
+
+WHEN  CHANGED(user(ExtSource es)) OR CHANGED(password(es) ) DO {  
+    encodeBase64(user(es) + ':' + password(es));
+    passwordBasicAuth(es) <- 'Basic ' + encodedBase64();
+}
+WHEN LOCAL DROPPED (password(es) ) DO {
+      password(es)<-PREV(password(es));
+}
+ 
+//passwordBasicAuth_(ExtSource es) = 'Basic ' + encodeBase64( user(es)(+)':'(+));
+
+ 
+
+FORM extSourceList 'Внешние источники'
+OBJECTS l = ExtSource  
+PROPERTIES(l) name, user, password, 
+conectString, defaultSource, NEW, DELETE
+ 
+;
+
+FORM extSourceSelect 'Внешние источники'
+OBJECTS l = ExtSource
+PROPERTIES(l) READONLY codeSource, name, user, password, conectString
+ 
+LIST ExtSource OBJECT l
+;
+
+DESIGN extSourceList{
+    PROPERTY (password(l)){
+    echoSymbols = TRUE;
+    clearText = TRUE; 
+    }
+}
+DESIGN extSourceSelect{
+    PROPERTY (password(l)){
+    echoSymbols = TRUE;
+    clearText = TRUE;
+    }
+}
+ 
+ 
+
+  

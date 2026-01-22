@@ -1,0 +1,41 @@
+MODULE DimensCostItems;
+
+REQUIRE TaskTune,Dimens,TypeCostItem;
+
+NAMESPACE Dimens;
+
+ // создание класса и таблицы хранения
+CLASS DimCostItems 'Статьи затрат' ;
+TABLE dimCostItems(DimCostItems);
+// объявление 3 обязательных форм используемых в метакоде
+// названия фиксированы - префикс form + имя класса + соответствующий суффикс
+FORM formDimCostItemsGroup 'Статьи затрат'; 
+FORM formDimCostItemslist 'Статьи затрат';
+FORM formDimCostItemsTreeList 'Статьи затрат';
+// вызов метакода добавлящего стандартные реквизиты 
+@configDimWO (DimCostItems);
+
+// добавление списка в CalcComposition 
+// Это добавляет реквизит в таблицу настроек листов в иерархии книги (бюджета) 
+// для возможности создания отдельных листов для выбранных статей затрат
+// например лист 1 содержит только часть выбранных галочками статьей
+// а другой добавленый лист - проивольно выбранные другие статьи 
+// но чтобы это работало - сама форма должна иметь фильтр на данный реквизит
+TABLE dimCostTask(Task,DimCostItems);
+checkedCostItems 'выбрано' = DATA BOOLEAN  (Task,DimCostItems) TABLE dimCostTask;
+@configDim2TaskTune(DimCostItems,checkedCostItems,vCostItems);
+
+// специфичные реквизиты для данного справочника
+refKey 'Ref_Key' = DATA STRING[36] (DimCostItems) IN id INDEXED;
+doNotUseImportItem 'Не импортировать статью из буфера' =  DATA BOOLEAN (DimCostItems);
+typeCostItem 'Группа затрат' = DATA TypeCostItem(DimCostItems);
+variableCost 'Переменные затраты' = DATA BOOLEAN (DimCostItems);
+EXTEND FORM formDimCostItemslist
+PROPERTIES typeCostItem = name(typeCostItem(d)), variableCost(d), doNotUseImportItem(d)
+;
+
+// функции имен уровней иерархии - для отчетов
+dimCostItemsLev1 (DimCostItems s) =              (GROUP  MAX DimCostItems parent  IF   (s) == n AND levelInt( n, parent) AND levelNumInt(parent) == 1);
+dimCostItemsLev2 (DimCostItems s) =              (GROUP  MAX DimCostItems parent  IF   (s) == n AND levelInt( n, parent) AND levelNumInt(parent) == 2);
+dimCostItemsLev3 (DimCostItems s) =              (GROUP  MAX DimCostItems parent  IF   (s) == n AND levelInt( n, parent) AND levelNumInt(parent) == 3);
+dimCostItemsLev4 (DimCostItems s) =              (GROUP  MAX DimCostItems parent  IF   (s) == n AND levelInt( n, parent) AND levelNumInt(parent) == 4);

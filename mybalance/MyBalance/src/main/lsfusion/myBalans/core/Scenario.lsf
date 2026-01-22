@@ -1,0 +1,20 @@
+MODULE Scenario;
+ 
+NAMESPACE Budget;
+
+ // Сценарий
+ CLASS Scenario 'Сценарии';
+ TABLE scenario(Scenario);
+ nameScenario 'Наименование' = DATA STRING[100] (Scenario) IN id;
+ mainScenario 'Основной' = DATA BOOLEAN (Scenario) IN id;
+ FORM scenarioList 'Сценарии'
+ OBJECTS sc = Scenario
+ PROPERTIES(sc) mainScenario, nameScenario, NEW, DELETE ;
+ 
+ FORM scenarioListSelect 'Сценарии'
+ OBJECTS sc = Scenario
+ PROPERTIES(sc) READONLY mainScenario, nameScenario
+ LIST Scenario OBJECT sc;
+ 
+ name(Scenario s) = nameScenario(s);
+ getMainScenario() = GROUP MAX Scenario sc IF mainScenario(sc) MATERIALIZED;

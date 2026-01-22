@@ -1,0 +1,52 @@
+MODULE DimensCFO;
+ 
+REQUIRE TaskTune,Dimens,ExtFormRequestList,TypeCFO;
+
+NAMESPACE   Dimens; 
+
+CLASS DimCFO 'Центры финансовой ответственности';
+TABLE dimCFO(DimCFO);
+FORM formDimCFOGroup 'Группы ЦФО'; 
+FORM formDimCFOlist 'Центры финансовой ответственности'; 
+ 
+FORM formDimCFOTreeList 'Центры финансовой ответственности'; 
+@configDimWO(DimCFO);
+
+// МЕСТО для доп. свойств
+typeCFO 'Тип подразделения' = DATA TypeCFO(DimCFO);
+EXTEND FORM formDimCFOlist
+PROPERTIES typeCFO 'Тип подразделения' = name(typeCFO(d)) AFTER name(d)
+;
+
+// добавление списка в CalcComposition
+TABLE dimCfoTask(Task,DimCFO);
+checkedCFO 'выбрано' = DATA BOOLEAN  (Task,DimCFO) TABLE dimCfoTask;
+@configDim2TaskTune(DimCFO,checkedCFO,vCFO);
+
+// добавление операций над задачей
+// операции Расчетов
+
+// операции Импорта 
+EXTEND CLASS SectionRequest {
+    sectionDimCFO 'Cправочник ЦФО'
+}
+EXTEND CLASS TypeRequest {
+    DimCfoOper1 'Загрузить ЦФО (Cправочник ЦФО)'
+}
+
+runActions() {
+  DIALOG extRequestSelectList OBJECTS  sr = SectionRequest.sectionDimCFO, er INPUT z FLOAT CANCEL DO {
+         MESSAGE 'Selected sku : ' + name(z) ;
+     }  
+}; 
+
+EXTEND FORM formDimCFOlist PROPERTIES exec 'Функции...' = runActions();
+ 
+ 
+
+
+
+
+// КОНЕЦ ТЕКСТА
+
+ 

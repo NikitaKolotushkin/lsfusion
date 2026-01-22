@@ -1,0 +1,11 @@
+MODULE ReportClassList;
+
+NAMESPACE Reports;
+//СПИсок типов отчетов
+CLASS ReportClassList {
+ dummy 'заглушка'
+}
+
+name 'Наименование отчета' (ReportClassList g) = staticCaption(g) IF g IS ReportClassList;
+
+

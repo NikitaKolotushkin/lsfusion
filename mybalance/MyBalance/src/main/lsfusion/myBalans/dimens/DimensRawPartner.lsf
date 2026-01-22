@@ -1,0 +1,52 @@
+MODULE DimensRawPartner;
+ 
+REQUIRE TaskTune,Dimens,DimensPartner,ExtFormRequestList;
+
+NAMESPACE   Dimens; 
+
+CLASS DimRawPartner 'Контрагенты загрузка';
+TABLE dimRawPartner(DimRawPartner);
+FORM formDimRawPartnerGroup 'Группы контрагентов'; 
+FORM formDimRawPartnerlist 'Контрагенты загрузка' ; 
+ 
+FORM formDimRawPartnerTreeList 'Контрагенты загрузка'; 
+@configDimWO(DimRawPartner);
+
+// партнеров клиентов надо 2 набора при импорте
+importStrDimRawPartner2 = DATA LOCAL STRING (INTEGER);              
+importDimRawPartner2    = DATA LOCAL DimRawPartner(INTEGER);       
+
+syncByNameDimRawPartner2() {
+    FOR [GROUP MAX importStrDimRawPartner2(INTEGER n) BY importStrDimRawPartner2(n)](STRING nm) AND NOT (GROUP MAX DimRawPartner p IF name(p) == nm) DO {
+        newByNameDimRawPartner(nm);
+    }
+    FOR importStrDimRawPartner2(INTEGER n) = name(DimRawPartner p) DO {
+        importDimRawPartner2(n) <- p;
+    }
+}         
+
+dimPartner = DATA DimPartner(DimRawPartner);
+
+EXTEND FORM formDimRawPartnerlist
+PROPERTIES nameMain 'Контрагент основной' = name(dimPartner(d)) AFTER name(d); //ON CHANGE formDimRawNomenkllistSelectNom(d);
+ 
+// МЕСТО для доп. свойств
+// 
+//// добавление списка в CalcComposition
+//TABLE dimPartnerTask(Task,DimPartner);
+//checkedPartner 'выбрано' = DATA BOOLEAN  (Task,DimPartner) TABLE dimPartnerTask;
+//@configDim2TaskTune(DimPartner,checkedPartner,vPartner);
+
+
+
+getOrCreatePartnerViaRaw(STRING  nameRawPartner) {
+       newByNameDimRawPartner(nameRawPartner);
+       // currentDimRawPartner
+         IF NOT dimPartner(currentDimRawPartner()) THEN {
+            newByNameDimPartner(nameRawPartner);
+            dimPartner(currentDimRawPartner()) <- currentDimPartner();
+         }
+         ELSE {
+           currentDimPartner() <- dimPartner(currentDimRawPartner()); 
+         }
+ }

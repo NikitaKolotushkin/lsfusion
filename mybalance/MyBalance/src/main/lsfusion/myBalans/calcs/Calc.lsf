@@ -1,0 +1,234 @@
+MODULE Calc;
+
+REQUIRE TaskTune, Utils, Time, PeriodCalendar, DimensFirm, FoldersTree;
+
+NAMESPACE Calc;
+
+
+// --- шапка расчета объединяющая книги --------------------
+CLASS Calc  'Расчет';
+TABLE calc(Calc);
+
+// 1. ссылка на родительский расчет... 
+// расчет  = что если... в принципе это копия расчета с полным пересчетом
+// копия расчета - имеет номер копии с одной стороны. 
+//       ветвится от расчета - основной расчет = родитель /
+// карта - дерево расчета - последовательность расчета
+// пометка -  изменение данных -  необходимость считать копию
+// 
+parentCalc '' = DATA Calc(Calc);
+calcVersionNum = DATA INTEGER (Calc);
+readOnlyHeader '' = DATA BOOLEAN (Calc);
+
+calcDate 'Дата расчета' = DATA DATE (Calc) IN base; 
+calcDateBegin 'начало'  = DATA DATE (Calc) IN base NONULL; 
+calcDateEnd 'окончание' = DATA DATE (Calc) IN base NONULL; 
+
+dimFirm     'Организация' = DATA DimFirm(Calc);
+
+description 'Комментарий' = DATA STRING[1000] (Calc) IN base;
+periodType 'Используемые периоды'  =  DATA PeriodType (Calc) NONULL;
+scenario 'Сценарий' = DATA Scenario(Calc ) NONULL;
+calcVariant 'Вид расчета'  = DATA CalcVariant(Calc) NONULL;
+
+// Характеристики бюджета используемые между ордерами
+paramProportionPart     'Доля в днях'                         = DATA INTEGER (Calc);
+paramProportionWhole    'Полная доля (рабочих дней)'          = DATA INTEGER (Calc);
+
+isTheSameScenario(Calc c1,Calc c2) =  scenario(c1) == scenario(c2) AND dimFirm(c1) == dimFirm(c2) ;
+isTheSameScenario(Calc c1,Calc c2, Scenario s2) =  s2 == scenario(c1) AND dimFirm(c1) == dimFirm(c2) ;
+isTheSameScenario(Calc c1, DimFirm dimFirm, Scenario s2) =  s2 == scenario(c1) AND dimFirm(c1) == dimFirm;
+
+periodInCalc(Period p, Calc calc) = GROUP LAST PeriodCalendar c AS PeriodCalendar IF dateBegin(c) >= calcDateBegin(calc)  
+                                          AND dateEnd(c) <= calcDateEnd(calc) 
+                                          AND periodType(c) == periodType(p)
+                                          AND period(c) == p 
+                                          ORDER pos(period(c));
+
+periodInCalc(PeriodCalendar p, Calc calc) = dateBegin(p) >= calcDateBegin(calc) AND dateEnd(p) <= calcDateEnd(calc) AND periodType(calc) = periodType(p);
+periodInCalc(PeriodCalendar p, Calc calc, DATE d1, DATE d2) = 
+                                                    dateBegin(p) >= calcDateBegin(calc) 
+                                                AND dateEnd(p)   <= calcDateEnd(calc) 
+                                                AND periodType(calc) = periodType(p)
+                                                AND d1 <= dateBegin(p) AND d2 >= dateEnd(p);
+ 
+
+
+name 'Наименование' (Calc c)   =  STRING[80] (CONCAT  ', ', nameCalcVariant(calcVariant(c)),
+                                        nameScenario(scenario(c)),   
+                                        nameType(periodType(c)),
+                                        (
+                                        CONCAT  ' ',
+                                            'с ',
+                                           toChar(calcDateBegin(c),'DD.MM.YYYY'),
+                                            'по ',
+                                           toChar(calcDateEnd(c),'DD.MM.YYYY') 
+                                        )   )                   
+                                        ;// DATA STRING[254] (Calc) IN id;
+                                        
+  
+getPeriodByDate(Calc c,DATE d) =  GROUP MAX period(PeriodCalendar p) IF periodType(p) == periodType (c) 
+                                                                                AND d >= dateBegin(p) 
+                                                                                AND d<= dateEnd(p);
+ 
+openCalcCard ABSTRACT (Calc);
+ 
+readOnlyTitleCalc(Calc c) = calcVersionNum(c) != NULL; 
+
+FORM calcList 'Реестр расчетов' 
+OBJECTS c = Calc LAST 
+;   
+
+// Папки по годам +++
+calcFolderOpenStatus(Calc c) = NOT folderClosed(extractYear(calcDateBegin(c)), currentUser());
+calcFolderOpenSet(Calc c, BOOLEAN set) { APPLY {folderClosed(extractYear(calcDateBegin(c)), currentUser()) <- NOT set;}}
+firstPosYear(Calc c) = c == (GROUP LAST Calc calc IF [FILTER calcList.c](calc) AND extractYear(calcDateBegin(c))==extractYear(calcDateBegin(calc)) ORDER DESC [ORDER calcList.c](calc));        
+EXTEND FORM calcList
+PROPERTIES
+folderPng 'Год' = IF firstPosYear(c) THEN (IF calcFolderOpenStatus(c) 
+                                          THEN (CONCAT ' ',img(FolderImage.open), extractYear(calcDateBegin(c))) 
+                                          ELSE (CONCAT ' ',img(FolderImage.close), extractYear(calcDateBegin(c))))
+                  ON CHANGE {IF firstPosYear(c) THEN  calcFolderOpenSet(c, NOT calcFolderOpenStatus(c));},
+folderYear =  extractYear(calcDateBegin(c))
+FILTERS  calcFolderOpenStatus(c) OR firstPosYear(c)  
+;
+DESIGN calcList {
+    PROPERTY (folderPng){charWidth = 4;fontStyle = 'bold';  }
+    PROPERTY (folderYear){hide = TRUE;}
+}    
+// Папки по годам ---
+
+
+EXTEND FORM  calcList
+//PROPERTIES opn 'Открыть' = {  IF calcFolderOpenStatus(c)  THEN openCalcCard(c); } GRID IMAGE 'images/folder_table.png' FIRST
+PROPERTIES ON CHANGE {IF calcFolderOpenStatus(c)  THEN openCalcCard(c);} 
+           // n01 'Дата' = calcDate(c),
+            n03     'Сценарий'      = IF calcFolderOpenStatus(c) THEN nameScenario(scenario(c))        ELSE ' ' ,
+            nameCV  'Вид расчета'   = IF calcFolderOpenStatus(c) THEN nameCalcVariant(calcVariant(c))  ELSE ' ' ,
+            begDate 'с'             = IF calcFolderOpenStatus(c) THEN calcDateBegin(c), 
+            endDate 'по'            = IF calcFolderOpenStatus(c) THEN calcDateEnd(c),
+            dimFirm 'Организация'   = IF calcFolderOpenStatus(c) THEN name(dimFirm(c))                 ELSE ' ' ,
+            n02     'Комментарий'   = IF calcFolderOpenStatus(c) THEN description(c)   ELSE ' '
+PROPERTIES(c) NEW,DELETE
+FILTERS hasCurrentUserDimFirmPermission(dimFirm(c)) OR NOT dimFirm(c)
+ORDERS folderYear, begDate, n03 
+ ;
+
+DESIGN calcList {
+      BOX (c) {caption = NULL; collapsible = FALSE;}
+   //   PROPERTY(n01) { charWidth=14; } 
+      PROPERTY(n03) { charWidth=10; }
+      PROPERTY(nameCV) { charWidth=10; }
+      PROPERTY(begDate) { charWidth=14; } 
+      PROPERTY(endDate) { charWidth=14; } 
+      PROPERTY(dimFirm) { charWidth=10; } 
+      PROPERTY(n02) { charWidth=50; } 
+};
+ 
+FORM calcListSelect 'Реестр расчетов' 
+OBJECTS c = Calc LAST 
+PROPERTIES  READONLY 
+          //  n01 'Дата' = calcDate(c),
+            n03 'Сценарий' = nameScenario(scenario(c))  ,
+            nameCV 'Вид расчета' = nameCalcVariant(calcVariant(c))  ,
+            begDate 'с'  = calcDateBegin(c), 
+            endDate 'по' = calcDateEnd(c),
+            dimFirm 'Организация' = name(dimFirm(c)),
+            n02 'Комментарий' = description(c)   
+ORDERS begDate,n03
+LIST Calc OBJECT c;
+
+
+
+DESIGN calcListSelect {
+   //   PROPERTY(n01) { charWidth=16; } 
+      PROPERTY(n03) { charWidth=10; }
+      PROPERTY(nameCV) { charWidth=10; }
+      PROPERTY(begDate) { charWidth=14; } 
+      PROPERTY(endDate) { charWidth=14; } 
+      PROPERTY(dimFirm) { charWidth=10; } 
+      PROPERTY(n02) { charWidth=50; } 
+};
+  
+  
+ openTask ABSTRACT (Calc, Task);
+ 
+FORM  reportListExecCalc 'Список отчетов'
+OBJECTS  calc = Calc PANEL; // предварительное объявление формы выбора отчета
+
+// ================ОСНОВНАЯ ФОРМА================================================
+FORM calcCard 'Расчет' 
+OBJECTS curCalc  = Calc PANEL 
+//OBJECTS p = CalcPeriod
+OBJECTS task = Task 
+PROPERTIES NOIMAGE READONLYIF readOnlyHeader(curCalc)
+           firm 'Организация' = name(dimFirm(curCalc)),
+       //    n01 'Дата' = calcDate (curCalc) , 
+           n04 'Вид расчета' = nameCalcVariant(calcVariant(curCalc)) NOSELECT,
+           n03 'Сценарий' = nameScenario(scenario(curCalc)),
+          
+           n1 'Периодичность' = nameType(periodType(curCalc)),
+           begDate 'с'  = calcDateBegin(curCalc),  
+           endDate 'по' = calcDateEnd(curCalc)
+PROPERTIES n02 'Комментарий' = description(curCalc), 
+           showReportList 'Отчеты'= {SHOW reportListExecCalc OBJECTS calc = curCalc WAIT FLOAT;},
+           ro '' = readOnlyHeader(curCalc)
+EVENTS ON APPLY BEFORE {readOnlyHeader(curCalc) <- TRUE;}
+      
+PROPERTIES  ON CHANGE { openTask(curCalc, task); }
+            nameTaskTab(task) FOREGROUND  IF isGroup(task) THEN groupFontColor(),
+            nameCol 'тип' = nameCalcBook(type(task)), 
+            canonicalName(task), pos(task) // hide
+
+FILTERS calcVariant(curCalc) == calcVariant(task) AND hasCurrentUserTaskPermission(task) 
+ORDERS  pos(task)//, canonicalName(task)  
+; 
+// открываем форму расчета с деревом задач
+openCalcCard (Calc c_) + {
+   SHOW calcCard OBJECTS  curCalc = c_ DOCKED NOWAIT MANAGESESSION;
+} 
+ 
+ 
+
+  
+DESIGN calcCard   { //nameTask
+caption =    nameScenario(scenario(curCalc)) + ': ' + toDateDDMMYYYY( calcDateBegin(curCalc)) ;
+
+    PROPERTY (nameTaskTab(task)) {charWidth = 60;}
+    PROPERTY (nameCol) {charWidth = 40;}
+    PROPERTY (pos(task)) {hide =TRUE;}
+    PROPERTY (canonicalName(task)){hide=TRUE;}
+    PROPERTY (pos(task)){hide=TRUE;}
+ 
+  PANEL (curCalc) {
+        caption = NULL;
+        NEW pan1 {
+            lines = 10;
+            MOVE PROPERTY(firm) { charWidth=14; align = STRETCH;};
+ //           MOVE PROPERTY(n01) { charWidth=14; align = STRETCH;};
+            MOVE PROPERTY(n04) { charWidth=14; align = STRETCH;};
+            MOVE PROPERTY(n03) { charWidth=14; align = STRETCH;};
+        }
+        NEW pan2 {
+            lines = 10;
+            MOVE PROPERTY (showReportList) {background = #edfffc;}; 
+            MOVE PROPERTY(begDate) { charWidth=14; align = STRETCH;} 
+            MOVE PROPERTY(endDate) { charWidth=14; align = STRETCH;} 
+            MOVE PROPERTY(n1) { charWidth=14; align = STRETCH;}
+            MOVE PROPERTY(n02) { charWidth = 50; align = STRETCH;}
+            MOVE PROPERTY(ro); 
+            
+        }
+    
+        
+  }
+   OBJECTS {
+      NEW tabPanelcalc {
+                 horizontal = TRUE;
+                 flex = 1; 
+                 align  = STRETCH;
+                 MOVE   BOX (task); 
+            }
+    }
+};
+  

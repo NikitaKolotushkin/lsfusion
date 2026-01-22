@@ -1,0 +1,22 @@
+MODULE DimensPartner;
+
+REQUIRE TaskTune, Utils,Dimens,ExtFormRequestList;
+
+NAMESPACE   Dimens; 
+
+CLASS DimPartner 'Контрагенты';
+TABLE dimPartner(DimPartner);
+FORM formDimPartnerGroup 'Группы контрагентов'; 
+FORM formDimPartnerlist 'Контрагенты'; 
+ 
+FORM formDimPartnerTreeList 'Контрагенты'; 
+@configDimWO(DimPartner);
+
+// МЕСТО для доп. свойств
+ 
+// добавление списка в CalcComposition
+TABLE dimPartnerTask(Task,DimPartner);
+
+
+checkedPartner 'выбрано' = DATA BOOLEAN  (Task,DimPartner) TABLE dimPartnerTask;
+@configDim2TaskTune(DimPartner,checkedPartner,vPartner);

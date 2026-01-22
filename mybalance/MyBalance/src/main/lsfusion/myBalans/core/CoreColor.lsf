@@ -1,0 +1,49 @@
+MODULE CoreColor;
+
+NAMESPACE Budget;
+ 
+ 
+groupBackColor(INTEGER n) = CASE WHEN n==1 THEN #ececc3 //желтый
+                                          WHEN n==2 THEN #f4f1c7
+                                          WHEN n==3 THEN #fffcd0
+                                          ELSE #ffffff;
+                                          
+groupColor(INTEGER g1,INTEGER g2, BOOLEAN isRoot,BOOLEAN isGroup) =
+     CASE EXCLUSIVE
+     WHEN isRoot AND g1==1 THEN     RGB(200, 255, 230)
+     WHEN isRoot AND g1==2 THEN     RGB(200, 255, 240)
+     WHEN isRoot AND g1==3 THEN     RGB(200, 255, 250)
+     WHEN isRoot AND g1>3 THEN      RGB(200, 255, 255)
+     WHEN isGroup AND g2==1 THEN    RGB(218, 226, 202)
+     WHEN isGroup AND g2==2 THEN    RGB(220, 240, 220)
+     WHEN isGroup AND g2==3 THEN    RGB(238, 238, 213)
+     WHEN isGroup AND g2>=4 THEN    RGB(255, 255, 200)
+;
+groupColor(INTEGER gl) = groupColor(0,gl, NULL,TRUE);  
+
+groupFontColor() = #0000ff;
+
+mbColor(STRING name, COLOR r) = CASE EXCLUSIVE 
+                                    WHEN r THEN r
+                                    WHEN name = 'grey' THEN #eeeeee
+                                    WHEN name = 'yellow' THEN #fffff0
+                                    WHEN name = 'green' THEN #f0fff0
+                                    WHEN name = 'red' THEN #fff0ff
+
+;
+                                                        
+
+CLASS FolderImage {
+    close   '📁',  //'⏵🗀',
+    open   '📂',   //'⏷🗁',
+    document '📄',  //'🖹',
+    level1 '①',
+    level2 '②',
+    level3 '③',
+    level4 '④',
+    level5 '⑤',
+    plus   '+',
+    plusPlus  '++'
+}
+img(FolderImage i) = staticCaption(i);
+imgFolder(BOOLEAN isFolder, BOOLEAN isFolderOpen) = IF isFolder THEN (IF isFolderOpen THEN img(FolderImage.open) ELSE img(FolderImage.close))  ELSE img(FolderImage.document);
