@@ -1,27 +1,19 @@
-name: mycompany
+name: lsfusion
 
 services:
   db:
     image: postgres:latest
     volumes:
-      - ./docker-db:/var/lib/postgresql
+      - ./docker-db:/var/lib/postgresql # host/path:container/path
     environment:
       - POSTGRES_PASSWORD=11111
-
-  logics:
-    image: lsfusion/mycompany:6.2-SNAPSHOT
-    volumes:
-      - ./docker-server:/lsfusion
 
   server:
     image: lsfusion/server:6.2-SNAPSHOT
     depends_on:
-      db:
-        condition: service_started
-      logics:
-        condition: service_completed_successfully
+      - db
     volumes:
-      - ./docker-server:/lsfusion
+      - ./docker-server:/lsfusion # host/path:container/path
     environment:
       - DB_SERVER=db
       - DB_PASSWORD=11111
@@ -33,7 +25,7 @@ services:
     depends_on:
       - server
     volumes:
-      - ./docker-client-conf:/usr/local/tomcat/conf/Catalina
+      - ./docker-client-conf:/usr/local/tomcat/conf/Catalina # host/path:container/path
     ports:
       - "8080:8080"
     environment:
